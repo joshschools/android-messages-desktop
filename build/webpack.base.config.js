@@ -1,18 +1,25 @@
 const path = require("path");
 const nodeExternals = require("webpack-node-externals");
-const FriendlyErrorsWebpackPlugin = require("friendly-errors-webpack-plugin");
 
-const translateEnvToMode = (env) => {
-  if (env === "production") {
+// webpack 5 passes `--env production` as an object ({ production: true }),
+// so derive a single environment name from it.
+const resolveEnvName = (env) => {
+  if (env && env.production) {
     return "production";
+  }
+  if (env && env.test) {
+    return "test";
   }
   return "development";
 };
 
-module.exports = env => {
+module.exports = (env) => {
+  const envName = resolveEnvName(env);
+  const isProduction = envName === "production";
+
   return {
     target: "electron-renderer",
-    mode: translateEnvToMode(env),
+    mode: isProduction ? "production" : "development",
     node: {
       __dirname: false,
       __filename: false
@@ -20,10 +27,10 @@ module.exports = env => {
     externals: [nodeExternals()],
     resolve: {
       alias: {
-        env: path.resolve(__dirname, `../config/env_${env}.json`)
+        env: path.resolve(__dirname, `../config/env_${envName}.json`)
       }
     },
-    devtool: "source-map",
+    devtool: isProduction ? "source-map" : "eval-source-map",
     module: {
       rules: [
         {
@@ -37,26 +44,15 @@ module.exports = env => {
         },
         {
           test: /\.(png|jpg|gif)$/,
-          use: [
-            {
-              loader: 'file-loader',
-              options: {
-                useRelativePath: process.env.NODE_ENV !== "production",
-                emitFile: false,
-                name (file) {
-                  if (process.env.NODE_ENV !== "production") {
-                    return '[name].[ext]'
-                  }
-                  return '[name].[ext]'
-                }
-              }
-            }
-          ]
+          // The icons are shipped as extraResources and referenced by their
+          // filename at runtime, so emit only the basename and reference it.
+          type: "asset/resource",
+          generator: {
+            emit: false,
+            filename: "[name][ext]"
+          }
         }
       ]
-    },
-    plugins: [
-      new FriendlyErrorsWebpackPlugin({ clearConsole: env === "development" })
-    ]
+    }
   };
 };

@@ -5,17 +5,30 @@
 
 import path from 'path';
 import url from 'url';
-import { app, Menu, ipcMain, Notification, shell, nativeTheme } from 'electron';
+import { app, Menu, ipcMain, Notification, shell, nativeTheme, BrowserWindow } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { baseMenuTemplate } from './menu/base_menu_template';
 import { devMenuTemplate } from './menu/dev_menu_template';
-import { settingsMenu } from './menu/settings_menu_template';
 import { helpMenuTemplate } from './menu/help_menu_template';
 import createWindow from './helpers/window';
-import DictionaryManager from './helpers/dictionary_manager';
 import TrayManager from './helpers/tray/tray_manager';
-import settings from 'electron-settings';
-import { IS_MAC, IS_WINDOWS, IS_LINUX, IS_DEV, SETTING_TRAY_ENABLED, SETTING_TRAY_CLICK_SHORTCUT, SETTING_CUSTOM_WORDS, EVENT_WEBVIEW_NOTIFICATION, EVENT_NOTIFICATION_REFLECT_READY, EVENT_BRIDGE_INIT, EVENT_SPELL_ADD_CUSTOM_WORD, EVENT_SPELLING_REFLECT_READY, EVENT_UPDATE_USER_SETTING } from './constants';
+import { attachContextMenu } from './helpers/webview_context_menu';
+import { isSafeExternalUrl, isAllowedNavigationUrl, isSafeDownloadUrl, isMessagesOrigin } from './helpers/url_security';
+import settings from './helpers/settings_manager';
+import {
+  IS_MAC,
+  IS_WINDOWS,
+  IS_LINUX,
+  IS_DEV,
+  MESSAGES_URL,
+  SETTING_TRAY_ENABLED,
+  SETTING_TRAY_CLICK_SHORTCUT,
+  EVENT_WEBVIEW_NOTIFICATION,
+  EVENT_NOTIFICATION_CLICK,
+  EVENT_BRIDGE_INIT,
+  EVENT_UPDATE_USER_SETTING,
+  EVENT_MAIN_WINDOW_FOCUS
+} from './constants';
 
 // Special module holding environment variables which you declared
 // in config/env_xxx.json file.
@@ -30,22 +43,34 @@ const state = {
 };
 
 let mainWindow = null;
+let webviewContents = null;
+
+// Permissions the Google Messages web app legitimately needs. Everything else
+// (geolocation, midi, hid, serial, usb, idle-detection, etc.) is denied, and
+// notifications are handled separately since we render our own.
+const ALLOWED_PERMISSIONS = new Set([
+  'media',
+  'clipboard-read',
+  'clipboard-sanitized-write',
+  'fullscreen',
+  'background-sync'
+]);
 
 // Prevent multiple instances of the app which causes many problems with an app like ours
 // Without this, if an instance were minimized to the tray in Windows, clicking a shortcut would launch another instance, icky
-// Adapted from https://github.com/electron/electron/blob/v4.0.4/docs/api/app.md#apprequestsingleinstancelock
 const isFirstInstance = app.requestSingleInstanceLock();
 
 if (!isFirstInstance) {
   app.quit();
 } else {
-  app.on('second-instance', (event, commandLine, workingDirectory) => {
+  app.on('second-instance', () => {
     if (mainWindow) {
       if (!mainWindow.isVisible()) {
         mainWindow.show();
       }
+      mainWindow.focus();
     }
-  })
+  });
 
   let trayManager = null;
 
@@ -67,13 +92,85 @@ if (!isFirstInstance) {
   }
 
   if (IS_WINDOWS) {
-    // Stupid, DUMB calls that have to be made to let notifications come through on Windows (only Windows 10?)
+    // Needed to let notifications come through on Windows.
     // See: https://github.com/electron/electron/issues/10864#issuecomment-382519150
     app.setAppUserModelId('com.knepper.android-messages-desktop');
     app.setAsDefaultProtocolClient('android-messages-desktop');
   }
 
-  app.on('ready', () => {
+  const configureWebview = (contents) => {
+    webviewContents = contents;
+
+    // Enable Electron's built-in spellchecker for the user's locale, if a
+    // matching dictionary is available.
+    try {
+      const available = contents.session.availableSpellCheckerLanguages || [];
+      const locale = app.getLocale();
+      const base = locale.split('-')[0];
+      const match = available.includes(locale)
+        ? locale
+        : available.find((language) => language.split('-')[0] === base);
+      if (match) {
+        contents.session.setSpellCheckerLanguages([match]);
+      }
+    } catch (error) {
+      // Spellchecking is best-effort; ignore unsupported locales.
+    }
+
+    attachContextMenu(contents);
+
+    // Deny notification permission (we render our own native notifications),
+    // restrict everything to the Google Messages origin, and only allow the
+    // narrow set of permissions the web app actually needs.
+    const permissionCheck = (requestingUrl, permission) => {
+      if (permission === 'notifications') {
+        return false;
+      }
+      if (!isMessagesOrigin(requestingUrl)) {
+        return false;
+      }
+      return ALLOWED_PERMISSIONS.has(permission);
+    };
+    contents.session.setPermissionRequestHandler((requestingContents, permission, callback) => {
+      callback(permissionCheck(requestingContents.getURL(), permission));
+    });
+    contents.session.setPermissionCheckHandler((requestingContents, permission, requestingOrigin) => {
+      return permissionCheck(requestingOrigin, permission);
+    });
+
+    // Open links in the user's default browser instead of a new Electron window,
+    // but only for safe schemes (never file:, custom protocols, UNC paths, etc.).
+    contents.setWindowOpenHandler(({ url: openUrl }) => {
+      if (isSafeExternalUrl(openUrl)) {
+        shell.openExternal(openUrl);
+      }
+      return { action: 'deny' };
+    });
+
+    contents.on('destroyed', () => {
+      // We will need to re-init the bridge on reload.
+      state.bridgeInitDone = false;
+      webviewContents = null;
+    });
+
+    // Keep the webview pinned to Google's origins. Off-origin navigations are
+    // blocked and, when safe, handed to the user's external browser instead.
+    contents.on('will-navigate', (event, navigationUrl) => {
+      if (navigationUrl === 'https://messages.google.com/web/authentication') {
+        // We were logged out; the bridge will re-init when we log back in.
+        state.bridgeInitDone = false;
+        return;
+      }
+      if (!isAllowedNavigationUrl(navigationUrl)) {
+        event.preventDefault();
+        if (isSafeExternalUrl(navigationUrl)) {
+          shell.openExternal(navigationUrl);
+        }
+      }
+    });
+  };
+
+  app.whenReady().then(() => {
     trayManager = new TrayManager();
 
     // TODO: Create a preference manager which handles all of these
@@ -133,14 +230,14 @@ if (!isFirstInstance) {
     trayMenuItem.checked = startInTray;
     enableTrayIconMenuItem.checked = trayManager.enabled;
 
-   if (IS_WINDOWS) {
+    if (IS_WINDOWS) {
       const trayClickShortcutMenuItem = menuInstance.getMenuItemById('trayClickShortcutMenuItem');
       trayClickShortcutMenuItem.enabled = trayManager.enabled;
       // As of Electron 3 or 4, setting checked property (even to false) of multiple items in radio group results in
       // the first one always being checked, so we have to set it just on the one where checked should == true
       const checkedItemIndex = (trayManager.clickShortcut === 'double-click') ? 0 : 1;
       trayClickShortcutMenuItem.submenu.items[checkedItemIndex].checked = true;
-   }
+    }
 
     notificationSoundEnabledMenuItem.checked = notificationSoundEnabled;
     pressEnterToSendMenuItem.checked = pressEnterToSendEnabled;
@@ -157,9 +254,11 @@ if (!isFirstInstance) {
       width: 1100,
       height: 800,
       autoHideMenuBar: autoHideMenuBar,
-      show: !(startInTray),  //Starts in tray if set
-      titleBarStyle: IS_MAC ? 'hiddenInset' : 'default', //Turn on hidden frame on a Mac
+      show: !(startInTray), // Starts in tray if set
+      titleBarStyle: IS_MAC ? 'hiddenInset' : 'default', // Turn on hidden frame on a Mac
       webPreferences: {
+        // The host renderer mounts a <webview> and bridges IPC to it. It loads
+        // only local, trusted content, so node integration is acceptable here.
         contextIsolation: false,
         nodeIntegration: true,
         webviewTag: true
@@ -170,7 +269,7 @@ if (!isFirstInstance) {
       // Setting the icon in Linux tends to be finicky without explicitly setting it like this.
       // See: https://github.com/electron/electron/issues/6205
       mainWindowOptions.icon = path.join(__dirname, '..', 'resources', 'icons', '128x128.png');
-    };
+    }
 
     mainWindow = createWindow('main', mainWindowOptions);
 
@@ -184,8 +283,8 @@ if (!isFirstInstance) {
 
     trayManager.startIfEnabled();
 
-    app.mainWindow = mainWindow; // Quick and dirty way for renderer process to access mainWindow for communication
-    
+    app.mainWindow = mainWindow; // Quick and dirty way for the tray manager to access mainWindow
+
     mainWindow.on('focus', () => {
       if (IS_MAC) {
         state.unreadNotificationCount = 0;
@@ -195,28 +294,26 @@ if (!isFirstInstance) {
       if (IS_WINDOWS && trayManager.overlayVisible) {
         trayManager.toggleOverlay(false);
       }
+
+      // Refocus the webview so text input keeps working.
+      mainWindow.webContents.send(EVENT_MAIN_WINDOW_FOCUS);
     });
 
     ipcMain.on(EVENT_WEBVIEW_NOTIFICATION, (event, msg) => {
-      if (msg.options) {
+      // Only honor notifications that originate from the Google Messages frame.
+      if (!isMessagesOrigin(event.senderFrame && event.senderFrame.url)) {
+        return;
+      }
+      if (msg && msg.options) {
+        // Only pass through an icon if it's a safe, fetchable URL.
+        const safeIcon = isSafeDownloadUrl(msg.options.icon) ? msg.options.icon : undefined;
         const notificationOpts = state.notificationContentHidden ? {
           title: 'Android Messages Desktop',
           body: 'New Message'
         } : {
-            title: msg.title,
-            /*
-            * TODO: Icon is just the logo, which is the only image sent by Google, hopefully someday they will pass
-            * the sender's picture/avatar here.
-            *
-            * We may be able to just do it live by:
-            * 1. Traversing the DOM for the conversation which matches the sender
-            * 2. Converting to to SVG to Canvas to PNG using: https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API/Drawing_DOM_objects_into_a_canvas
-            * 3. Sending image URL which Electron can display via nativeImage.createFromDataURL
-            * This would likely also require copying computed style properties into the element to ensure it looks right.
-            * There also appears to be a library: http://html2canvas.hertzen.com
-            */
-            icon: msg.options.icon,
-            body: msg.options.body,
+          title: msg.title,
+          icon: safeIcon,
+          body: msg.options.body
         };
         notificationOpts.silent = !(state.notificationSoundEnabled);
         const customNotification = new Notification(notificationOpts);
@@ -232,77 +329,30 @@ if (!isFirstInstance) {
 
         customNotification.once('click', () => {
           mainWindow.show();
+          // Let the webview run Google's own click handler (highlights the
+          // relevant conversation).
+          if (webviewContents && !webviewContents.isDestroyed()) {
+            webviewContents.send(EVENT_NOTIFICATION_CLICK);
+          }
         });
-
-        // Allows us to marry our custom notification and its behavior with the helpful behavior
-        // (conversation highlighting) that Google provides. See the webview bridge for details.
-        global.currentNotification = customNotification;
-        event.sender.send(EVENT_NOTIFICATION_REFLECT_READY, true);
 
         customNotification.show();
       }
     });
 
-    ipcMain.on(EVENT_BRIDGE_INIT, async (event) => {
+    ipcMain.on(EVENT_BRIDGE_INIT, (event) => {
+      if (!isMessagesOrigin(event.senderFrame && event.senderFrame.url)) {
+        return;
+      }
       if (state.bridgeInitDone) {
         return;
       }
 
       state.bridgeInitDone = true;
-      // We have to send un-solicited events (i.e. an event not the result of an event sent to this process) to the webview bridge
-      // via the renderer process. I'm not sure of a way to get a reference to the androidMessagesWebview inside the renderer from
-      // here. There may be a legit way to do it, or we can do it a dirty way like how we pass this process to the renderer.
       mainWindow.webContents.send(EVENT_UPDATE_USER_SETTING, {
         enterToSend: pressEnterToSendEnabled,
         useDarkMode: useSystemDarkMode ? nativeTheme.shouldUseDarkColors : null
       });
-
-      let spellCheckFiles = null;
-      let customWords = null;
-      const currentLanguage = app.getLocale();
-      try {
-        const supportedLanguages = await DictionaryManager.getSupportedLanguages();
-
-        const dictionaryLocaleKey = DictionaryManager.doesLanguageExistForLocale(currentLanguage, supportedLanguages);
-
-        if (dictionaryLocaleKey) { // Spellchecking is supported for the current language
-          spellCheckFiles = await DictionaryManager.getLanguagePath(currentLanguage, dictionaryLocaleKey);
-
-          // We send an event with the language key and array of custom words to the webview bridge which contains the
-          // instance of the spellchecker. Done this way because passing class instances (i.e. of the spellchecker)
-          // between electron processes is hacky at best and impossible at worst.
-          const existingCustomWords = settings.get(SETTING_CUSTOM_WORDS, {});
-
-          customWords = {};
-          if (currentLanguage in existingCustomWords) {
-            customWords = { [currentLanguage]: existingCustomWords[currentLanguage] };
-          }
-        }
-      }
-      catch (error) {
-        // TODO: Display this as an error message to the user?
-      }
-
-      event.sender.send(EVENT_SPELLING_REFLECT_READY, {
-        dictionaryLocaleKey: currentLanguage,
-        spellCheckFiles,
-        customWords
-      });
-    });
-
-    ipcMain.on(EVENT_SPELL_ADD_CUSTOM_WORD, (event, msg) => {
-      // Add custom words picked by the user to a persistent data store because they must be added to
-      // the instance of Hunspell on each launch of the app/loading of the dictionary.
-      const { newCustomWord } = msg;
-      const currentLanguage = app.getLocale();
-      const existingCustomWords = settings.get(SETTING_CUSTOM_WORDS, {});
-      if (!(currentLanguage in existingCustomWords)) {
-        existingCustomWords[currentLanguage] = [];
-      }
-      if (newCustomWord && !existingCustomWords[currentLanguage].includes(newCustomWord)) {
-        existingCustomWords[currentLanguage].push(newCustomWord);
-        settings.set(SETTING_CUSTOM_WORDS, existingCustomWords);
-      }
     });
 
     let quitViaContext = false;
@@ -313,16 +363,14 @@ if (!isFirstInstance) {
     const shouldExitOnMainWindowClosed = () => {
       if (IS_MAC) {
         return quitViaContext;
-      } else {
-        if (trayManager.enabled) {
-          return quitViaContext;
-        }
-        return true;
       }
+      if (trayManager.enabled) {
+        return quitViaContext;
+      }
+      return true;
     };
 
     mainWindow.on('close', (event) => {
-      console.log('close window called');
       if (!shouldExitOnMainWindowClosed()) {
         event.preventDefault();
         mainWindow.hide();
@@ -333,31 +381,12 @@ if (!isFirstInstance) {
     });
 
     if (IS_DEV) {
-      mainWindow.openDevTools();
+      mainWindow.webContents.openDevTools();
     }
 
-    app.on('web-contents-created', (e, contents) => {
-
-      // Check for a webview
-      if (contents.getType() == 'webview') {
-
-        // Listen for any new window events
-        contents.on('new-window', (e, url) => {
-          e.preventDefault()
-          shell.openExternal(url)
-        });
-
-        contents.on('destroyed', (e) => {
-          // we will need to re-init on reload
-          state.bridgeInitDone = false;
-        });
-
-        contents.on('will-navigate', (e, url) => {
-          if (url === 'https://messages.google.com/web/authentication') {
-            // we were logged out, let's display a notification to the user about this in the future
-            state.bridgeInitDone = false;
-          }
-        });
+    app.on('web-contents-created', (event, contents) => {
+      if (contents.getType() === 'webview') {
+        configureWebview(contents);
       }
     });
   });

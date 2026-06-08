@@ -1,5 +1,30 @@
 # Changelog
 
+## [4.0.0] - 2026-06-08
+### Security
+- Restrict webview navigation to Google's origins (`messages.google.com` / `accounts.google.com`); off-origin navigations are blocked and safe links are opened in the external browser instead
+- Validate URL schemes before `shell.openExternal` and before downloads (blocks `file:`, UNC paths, and custom protocols)
+- Keep the OS sandbox enabled for the remote-content webview
+- Replace the blanket permission grant with an allowlist of only the permissions the web app needs; deny notifications (rendered natively) and everything else
+- Validate the origin of incoming IPC messages and the notification icon URL
+- Add a Content-Security-Policy to the local host page
+- Bump Electron and electron-builder to resolve known dependency advisories (`npm audit`: 0 vulnerabilities)
+
+### Changed
+- Under the hood: Update Electron from 7.0.1 to 42.x
+- Under the hood: Update build toolchain to webpack 5 and Babel 7
+- Spellchecking now uses Electron's built-in (Chromium) spellchecker instead of the bundled `electron-hunspell` library and downloaded `wooorm/dictionaries` files
+- Right-click context menus, webview permission handling, and link-open handling moved into the main process
+
+### Removed
+- The `remote` module (removed from Electron); the renderer and webview preload now communicate exclusively over IPC
+- `electron-hunspell` and the custom dictionary downloader/manager
+- The Spectron-based unit/e2e test stack (Spectron is archived and incompatible with modern Electron)
+- The Linux `snap` and 32-bit (`ia32`) build targets; added Windows/Linux `arm64`
+
+### Fixed
+- Replaced APIs removed from modern Electron: `webview.getWebContents()`, the `new-window` event (now `setWindowOpenHandler`), `electron-settings` v3 sync/`watch` API (now a thin wrapper over v4), and the synchronous `dialog.showMessageBox`
+
 ## [3.1.0] - 2019-11-26
 ### Added
 - Setting to follow (sync) system dark mode setting, changing from dark to light and vice versa as the operating system does -- This overrides the Google-provided setting within the 3-dot menu

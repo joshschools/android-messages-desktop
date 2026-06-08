@@ -20,11 +20,13 @@ Based on:
 
 * [electron-boilerplate](https://github.com/szwacz/electron-boilerplate)
 
+> **Modernized fork (2026):** This branch brings the project up to date with a current Electron (42) and toolchain (webpack 5, Babel 7). The custom `electron-hunspell` spellchecker and the removed `remote` module have been replaced with Electron's built-in spellchecker and IPC, and the build no longer depends on the archived Spectron test stack. It also includes a round of security hardening (navigation/origin allowlisting, scheme validation for external links and downloads, an OS-sandboxed webview, a permission allowlist, and IPC sender validation). See [CHANGELOG.md](CHANGELOG.md) for details.
+
 # Download
 Head over to the [latest releases](https://github.com/chrisknepper/android-messages-desktop/releases/latest) page!
 * For Mac, choose the **dmg**
 * For Windows, choose the **exe**
-* For Linux, choose either the **deb**, the **snap**, the **pacman**, or the **AppImage**. If you're using Arch or derivates of, it's also available in the [AUR](https://aur.archlinux.org/packages/android-messages-desktop/).
+* For Linux, choose either the **deb**, the **pacman**, or the **AppImage**. If you're using Arch or derivates of, it's also available in the [AUR](https://aur.archlinux.org/packages/android-messages-desktop/).
 
 **Important note:** The Windows app binary isn't signed. This doesn't seem to be a big problem, but please report any issues you run into on Windows that may be related to signing.
 
@@ -40,7 +42,7 @@ Head over to the [latest releases](https://github.com/chrisknepper/android-messa
 * TBD...
 
 # Spellchecking
-Implemented via the amazing [`electron-hunspell`](https://github.com/kwonoj/electron-hunspell) library with dictionaries provided by the excellent [`dictionaries`](https://github.com/wooorm/dictionaries) project. Language files are downloaded when the app opens and the language used is based on the language set in your operating system. If you switch your system language and restart the app, the spellchecking should occur in the new language as long as it is in the [list of supported languages](https://github.com/wooorm/dictionaries#table-of-dictionaries).
+Implemented via Electron's built-in spellchecker (powered by the same engine Chromium uses). The language is based on the language set in your operating system; the relevant dictionary is fetched and managed by Electron automatically. Right-click a misspelled word to see suggestions or add it to your personal dictionary.
 
 # TODOs / Roadmap (rough order of priority):
 - [x] Make sure it actually works (definitely works as of v0.1.0, done via [8068ed2](../../commit/8068ed2))
@@ -56,7 +58,7 @@ Implemented via the amazing [`electron-hunspell`](https://github.com/kwonoj/elec
 - [ ] Support customization/custom options a la Google Play Music Desktop Player?
 
 # Development
-Make sure you have [Node.js](https://nodejs.org) installed, then run the following in your terminal:
+Make sure you have a recent [Node.js](https://nodejs.org) (18+) installed, then run the following in your terminal:
 
 ```
 git clone https://github.com/chrisknepper/android-messages-desktop.git
@@ -69,24 +71,16 @@ npm start
 ```
 npm start
 ```
+This compiles the app with webpack in watch mode and launches Electron.
+
+## Compiling without launching
+```
+npm run compile
+```
+Produces the bundled `app/background.js`, `app/app.js`, and `app/bridge.js`.
 
 # Testing
-Run all tests:
-```
-npm test
-```
-
-## Unit
-```
-npm run unit
-```
-Using [electron-mocha](https://github.com/jprichardson/electron-mocha) test runner with the [Chai](http://chaijs.com/api/assert/) assertion library. You can put your spec files wherever you want within the `src` directory, just name them with the `.spec.js` extension.
-
-## End to end
-```
-npm run e2e
-```
-Using [Mocha](https://mochajs.org/) and [Spectron](http://electron.atom.io/spectron/). This task will run all files in `e2e` directory with `.e2e.js` extension.
+The original Spectron-based unit/e2e suite was removed because [Spectron is archived](https://github.com/electron-userland/spectron) and incompatible with modern Electron. Re-introducing a test suite (e.g. with [Playwright for Electron](https://playwright.dev/docs/api/class-electron)) is tracked as future work.
 
 # Publishing a release:
 1. Commit what you want to go in the release (including updates to README and CHANGELOG)
