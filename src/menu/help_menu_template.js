@@ -6,7 +6,7 @@ import { separator } from './items/separator';
 
 const submenu = [{
     label: 'Learn More',
-    click: () => shell.openExternal('https://github.com/chrisknepper/android-messages-desktop/')
+    click: () => shell.openExternal('https://github.com/joshschools/android-messages-desktop/')
 },
 {
     label: 'Changelog',
