@@ -21,19 +21,17 @@ Originally inspired by:
 
 ## Screenshots
 
-> 📸 _Screenshots coming soon. Placeholders below — drop images into `assets/screenshots/` and uncomment the matching line._
+**Main window (Linux)**
+![Main window](assets/screenshots/main.png)
 
-**Main window**
-<!-- ![Main window](assets/screenshots/main.png) -->
+**Conversation view**
+![Conversation view](assets/screenshots/conversation.png)
 
 **Incoming notification**
 <!-- ![Incoming notification](assets/screenshots/notification.png) -->
 
 **Tray / menu bar**
 <!-- ![Tray menu](assets/screenshots/tray.png) -->
-
-**Dark mode**
-<!-- ![Dark mode](assets/screenshots/dark-mode.png) -->
 
 **Settings menu**
 <!-- ![Settings menu](assets/screenshots/settings.png) -->
@@ -45,7 +43,7 @@ Originally inspired by:
 - Unread notification badge on macOS (dock) and Windows (tray overlay)
 - Spellchecking via Electron's built-in (Chromium) spellchecker
 - Press-Enter-to-send toggle
-- Follow the system light/dark mode setting
+- Follow the system light/dark mode setting (no in-app light/dark toggle — switches with your OS theme, or use Google Messages' ⋮ menu when sync is disabled)
 - Run in the background on Windows / Linux / macOS
 - Minimize to tray on Windows / Linux
 - Menu bar support on macOS
