@@ -3,7 +3,7 @@
   "productName": "Android Messages",
   "desktopName": "com.knepper.android-messages-desktop.desktop",
   "description": "Messages for web, as a desktop app",
-  "version": "4.0.1",
+  "version": "4.0.2",
   "author": "Chris Knepper <chris82thekid@gmail.com>",
   "copyright": "© 2018-2026 Chris Knepper",
   "homepage": "https://github.com/chrisknepper/android-messages-desktop",
