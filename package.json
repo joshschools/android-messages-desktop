@@ -16,6 +16,13 @@
   "main": "app/background.js",
   "build": {
     "appId": "com.knepper.android-messages-desktop",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "joshschools",
+        "repo": "android-messages-desktop"
+      }
+    ],
     "files": [
       "app/**/*",
       "resources/**/*",
@@ -58,6 +65,7 @@
     },
     "linux": {
       "category": "Chat",
+      "artifactName": "${name}-${version}.${ext}",
       "target": [
         "deb",
         "AppImage",
