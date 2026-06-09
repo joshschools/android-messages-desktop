@@ -10,7 +10,7 @@ const submenu = [{
 },
 {
     label: 'Changelog',
-    click: () => shell.openExternal('https://github.com/chrisknepper/android-messages-desktop/blob/master/CHANGELOG.md')
+    click: () => shell.openExternal('https://github.com/joshschools/android-messages-desktop/blob/master/CHANGELOG.md')
 }
 ];
 
