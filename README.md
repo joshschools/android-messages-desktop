@@ -63,14 +63,23 @@ See [CHANGELOG.md](CHANGELOG.md) for details.
 
 ## Install
 
-> ⚠️ Pre-built binaries for **this fork** are not published yet — for now, build from source (see [Development](#development)). The original project's releases (which predate this modernization) are available on the [upstream releases page](https://github.com/chrisknepper/android-messages-desktop/releases/latest).
-
-Once binaries are published, they'll be available for:
-- **macOS** — `.dmg`
+Pushing a `vX.Y.Z` tag triggers CI to build and publish a GitHub Release. Phase 1 ships **unsigned** builds for:
+- **Linux** — `.AppImage`, `.deb`, `.pacman`
 - **Windows** — `.exe` (NSIS installer) and a portable build
-- **Linux** — `.deb`, `.pacman`, and `.AppImage`
 
-**Note:** Windows binaries are not code-signed. Please report any signing-related issues.
+macOS is not built yet (it requires code signing + notarization). Until a release is cut, you can build from source (see [Development](#development)). The original project's releases (which predate this modernization) are on the [upstream releases page](https://github.com/chrisknepper/android-messages-desktop/releases/latest).
+
+### Arch Linux (AUR)
+A `-bin` package definition lives in [`packaging/aur/`](packaging/aur/) (installs the released AppImage). See its [README](packaging/aur/README.md) for building/publishing.
+
+### Verifying Linux downloads
+Linux artifacts are GPG-signed (when a signing key is configured), with a detached `.asc` next to each file and the public key published as `signing-key.asc` on the release:
+```bash
+gpg --import signing-key.asc
+gpg --verify android-messages-desktop-<version>.AppImage.asc android-messages-desktop-<version>.AppImage
+```
+
+**Note:** Windows builds are not code-signed yet, so SmartScreen will warn on first run.
 
 ---
 

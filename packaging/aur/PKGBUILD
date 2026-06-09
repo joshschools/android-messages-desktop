@@ -1,0 +1,67 @@
+# Maintainer: Josh Schools <you@example.com>
+# A '-bin' package that installs the prebuilt AppImage from the GitHub release.
+pkgname=android-messages-desktop-bin
+_pkgname=android-messages-desktop
+pkgver=4.0.0
+pkgrel=1
+pkgdesc='Google Messages (formerly Android Messages) as a cross-platform desktop app'
+arch=('x86_64')
+url='https://github.com/joshschools/android-messages-desktop'
+license=('MIT')
+# Electron runtime needs these system libraries; libnotify is required for
+# desktop notifications.
+depends=('gtk3' 'nss' 'alsa-lib' 'libnotify')
+provides=("${_pkgname}")
+conflicts=("${_pkgname}")
+options=('!strip')
+source=("${_pkgname}-${pkgver}.AppImage::${url}/releases/download/v${pkgver}/${_pkgname}-${pkgver}.AppImage"
+        "${_pkgname}-${pkgver}.AppImage.asc::${url}/releases/download/v${pkgver}/${_pkgname}-${pkgver}.AppImage.asc"
+        "LICENSE::${url}/raw/v${pkgver}/LICENSE")
+# Run `updpkgsums` to fill these in for a specific release. Signatures are
+# verified via validpgpkeys below (set your fingerprint to enable it).
+sha256sums=('SKIP'
+            'SKIP'
+            'SKIP')
+# Add your GPG key fingerprint here to enforce signature verification of the
+# AppImage at build time, e.g. validpgpkeys=('ABCD1234...').
+validpgpkeys=()
+
+prepare() {
+  chmod +x "${_pkgname}-${pkgver}.AppImage"
+  # --appimage-extract does not require FUSE.
+  "./${_pkgname}-${pkgver}.AppImage" --appimage-extract >/dev/null
+}
+
+package() {
+  # Install the extracted app under /opt (avoids a runtime FUSE dependency).
+  install -d "${pkgdir}/opt/${_pkgname}"
+  cp -a squashfs-root/. "${pkgdir}/opt/${_pkgname}/"
+
+  # The Chromium sandbox helper must be root-owned and setuid.
+  if [ -f "${pkgdir}/opt/${_pkgname}/chrome-sandbox" ]; then
+    chmod 4755 "${pkgdir}/opt/${_pkgname}/chrome-sandbox"
+  fi
+
+  # Launcher wrapper.
+  install -d "${pkgdir}/usr/bin"
+  cat > "${pkgdir}/usr/bin/${_pkgname}" <<EOF
+#!/bin/sh
+exec "/opt/${_pkgname}/AppRun" "\$@"
+EOF
+  chmod 755 "${pkgdir}/usr/bin/${_pkgname}"
+
+  # Desktop entry (generated inside the AppImage), rewritten to call the wrapper.
+  local desktop
+  desktop="$(find squashfs-root -maxdepth 1 -name '*.desktop' | head -n1)"
+  if [ -n "${desktop}" ]; then
+    install -Dm644 "${desktop}" "${pkgdir}/usr/share/applications/${_pkgname}.desktop"
+    sed -i "s|^Exec=.*|Exec=${_pkgname} %U|" "${pkgdir}/usr/share/applications/${_pkgname}.desktop"
+  fi
+
+  # Icons (whatever sizes the AppImage shipped).
+  if [ -d squashfs-root/usr/share/icons ]; then
+    cp -a squashfs-root/usr/share/icons/. "${pkgdir}/usr/share/icons/"
+  fi
+
+  install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}

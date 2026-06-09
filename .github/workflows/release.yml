@@ -52,6 +52,40 @@ jobs:
           # to create/upload the GitHub Release.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # GPG-sign the Linux artifacts so users can verify authenticity. This is a
+      # no-op unless a GPG_PRIVATE_KEY secret is configured, so the workflow still
+      # works for unsigned builds. On a tag build, the .asc signatures are also
+      # uploaded to the GitHub Release created by electron-builder above.
+      - name: GPG-sign Linux artifacts
+        if: matrix.platform == 'linux'
+        shell: bash
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IS_TAG: ${{ startsWith(github.ref, 'refs/tags/') }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GPG_PRIVATE_KEY:-}" ]; then
+            echo "GPG_PRIVATE_KEY secret not set — skipping signing."
+            exit 0
+          fi
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          KEY_ID="$(gpg --list-secret-keys --with-colons | awk -F: '/^sec:/ {print $5; exit}')"
+          echo "Signing artifacts with key $KEY_ID"
+          shopt -s nullglob
+          for f in dist/*.AppImage dist/*.deb dist/*.pacman; do
+            echo "Signing $f"
+            gpg --batch --yes --pinentry-mode loopback --passphrase "${GPG_PASSPHRASE:-}" \
+              --local-user "$KEY_ID" --armor --detach-sign "$f"
+          done
+          gpg --armor --export "$KEY_ID" > dist/signing-key.asc
+          if [ "$IS_TAG" = "true" ]; then
+            echo "Uploading signatures to release $TAG"
+            gh release upload "$TAG" dist/*.asc --clobber --repo "$GITHUB_REPOSITORY"
+          fi
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -64,5 +98,6 @@ jobs:
             dist/*.zip
             dist/*.yml
             dist/*.blockmap
+            dist/*.asc
           if-no-files-found: warn
           retention-days: 14

@@ -65,6 +65,7 @@
     },
     "linux": {
       "category": "Chat",
+      "artifactName": "${name}-${version}.${ext}",
       "target": [
         "deb",
         "AppImage",
