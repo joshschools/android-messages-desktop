@@ -2,13 +2,19 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <!--
+    CSP for the local host shell only. The embedded <webview> is a separate guest
+    WebContents and is governed by its own (Google's) CSP, so this does not affect
+    the remote app. 'unsafe-inline' is required for the <style> tags style-loader injects.
+  -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>Android Messages</title>
 </head>
 <body>
   <div id="app">
-    <!-- <webview id="androidMessagesWebview" src="https://davidwalsh.name/demo/notifications-api.php" autosize></webview> -->
-    <webview id="androidMessagesWebview" src="https://messages.google.com/web/" autosize preload="bridge.js"></webview>
-    
+    <!-- src and preload are configured in app.js so the preload can use an absolute file: URL -->
+    <webview id="androidMessagesWebview" autosize></webview>
+
     <!--Enable dragging on the titlebar-->
     <div id="titlebar"></div>
     <div id="loader"></div>

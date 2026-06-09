@@ -2,7 +2,7 @@ import path from 'path';
 import { app, Tray, Menu } from 'electron';
 import { trayMenuTemplate } from '../../menu/tray_menu_template';
 import { IS_MAC, IS_LINUX, IS_WINDOWS, SETTING_TRAY_ENABLED, SETTING_TRAY_CLICK_SHORTCUT } from '../../constants';
-import settings from 'electron-settings';
+import settings from '../settings_manager';
 
 // TODO: Make this static
 export default class TrayManager {
@@ -106,8 +106,9 @@ export default class TrayManager {
     this.tray.removeListener('double-click', this.handleTrayClick);
   }
 
-  handleTrayClick(event) {
-    event.preventDefault();
+  handleTrayClick() {
+    // Note: the Tray 'click' event passes a modifier-keys object, not a DOM
+    // event, so there's no preventDefault() to call here.
     if (app.mainWindow) {
       app.mainWindow.show();
     }
