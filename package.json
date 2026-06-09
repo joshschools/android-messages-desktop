@@ -1,6 +1,7 @@
 {
   "name": "android-messages-desktop",
   "productName": "Android Messages",
+  "desktopName": "com.knepper.android-messages-desktop.desktop",
   "description": "Messages for web, as a desktop app",
   "version": "4.0.0",
   "author": "Chris Knepper <chris82thekid@gmail.com>",
@@ -66,7 +67,6 @@
     "linux": {
       "category": "Chat",
       "artifactName": "${name}-${version}.${ext}",
-      "desktopName": "android-messages-desktop",
       "syncDesktopName": true,
       "target": [
         "deb",
