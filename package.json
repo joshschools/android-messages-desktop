@@ -66,6 +66,8 @@
     "linux": {
       "category": "Chat",
       "artifactName": "${name}-${version}.${ext}",
+      "desktopName": "android-messages-desktop",
+      "syncDesktopName": true,
       "target": [
         "deb",
         "AppImage",
