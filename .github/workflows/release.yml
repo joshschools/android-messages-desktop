@@ -1,0 +1,68 @@
+name: Release
+
+# Phase 1 publishing: build unsigned Linux (deb/AppImage/pacman) and Windows
+# (nsis/portable) artifacts. Pushing a v* tag publishes them to a GitHub
+# Release (created as a draft); manual runs just build + upload artifacts to
+# the workflow run so you can smoke-test without cutting a release.
+#
+# macOS is intentionally excluded until code signing + notarization are set up,
+# since unsigned macOS builds are blocked by Gatekeeper.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: windows-latest
+            platform: win
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compile renderer/main bundles
+        run: npm run compile
+
+      - name: Build${{ startsWith(github.ref, 'refs/tags/') && ' & publish' || '' }} (${{ matrix.platform }})
+        run: npx electron-builder --${{ matrix.platform }} --publish ${{ startsWith(github.ref, 'refs/tags/') && 'always' || 'never' }}
+        env:
+          # Provided automatically by Actions; needs `contents: write` (set above)
+          # to create/upload the GitHub Release.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-installers
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.pacman
+            dist/*.exe
+            dist/*.zip
+            dist/*.yml
+            dist/*.blockmap
+          if-no-files-found: warn
+          retention-days: 14
