@@ -11,7 +11,11 @@ module.exports = (env) => {
     },
     output: {
       filename: "[name].js",
-      path: path.resolve(__dirname, "../app")
+      path: path.resolve(__dirname, "../app"),
+      // background.js runs in the main process (no `document`), so disable
+      // webpack's browser-only automatic publicPath detection. Icon assets are
+      // referenced by filename and not emitted, so a static path is correct.
+      publicPath: ""
     }
   });
 };

@@ -79,6 +79,15 @@ npm run compile
 ```
 Produces the bundled `app/background.js`, `app/app.js`, and `app/bridge.js`.
 
+## Notifications in development on KDE Plasma 6 (Wayland)
+Plasma 6's Wayland notification service drops notifications whose `desktop-entry`
+hint doesn't match an installed `.desktop` file, which the unpackaged dev app
+doesn't have. Installed builds ship a generated `.desktop` file, so this only
+affects `npm start`. To test notifications during development, run under X11:
+```
+env -u ELECTRON_RUN_AS_NODE ./node_modules/.bin/electron . --ozone-platform=x11
+```
+
 # Testing
 The original Spectron-based unit/e2e suite was removed because [Spectron is archived](https://github.com/electron-userland/spectron) and incompatible with modern Electron. Re-introducing a test suite (e.g. with [Playwright for Electron](https://playwright.dev/docs/api/class-electron)) is tracked as future work.
 

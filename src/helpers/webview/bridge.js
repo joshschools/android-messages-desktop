@@ -35,12 +35,14 @@ ipcRenderer.on(EVENT_UPDATE_USER_SETTING, (event, settingsList) => {
 });
 
 /*
- * Override the webview's Notification class so we can render our own native
- * Electron notifications (with custom click handling) instead of the ones
- * Chromium would show. We still preserve Google's own click listener, which
- * highlights the conversation a notification belongs to: the main process tells
- * us (via EVENT_NOTIFICATION_CLICK) when our native notification is clicked, and
- * we invoke Google's stored listener at that point.
+ * Forward Google Messages notifications to the main process so we can render
+ * our own native Electron notifications instead of the ones Chromium would show.
+ *
+ * Modern Google Messages fires notifications through the service worker's
+ * ServiceWorkerRegistration.showNotification() rather than `new Notification()`,
+ * so we intercept BOTH. We also make the page believe notification permission is
+ * granted (the OS-level permission stays denied so Chromium never shows its own
+ * duplicate) — otherwise Google's code checks the permission and never fires.
  */
 const OriginalBrowserNotification = Notification;
 let pendingClickListener = null;
@@ -51,22 +53,67 @@ ipcRenderer.on(EVENT_NOTIFICATION_CLICK, () => {
     }
 });
 
+const forwardNotification = (title, options) => {
+    ipcRenderer.send(EVENT_WEBVIEW_NOTIFICATION, { title, options: options || {} });
+};
+
+// 1) Intercept page-context `new Notification(...)`.
 Notification = function (title, options) {
-    const notification = new OriginalBrowserNotification(title, options);
+    let notification = null;
+    try {
+        notification = new OriginalBrowserNotification(title, options);
+        const originalAddEventListener = notification.addEventListener.bind(notification);
+        notification.addEventListener = function (type, listener, opts) {
+            if (type === 'click') {
+                pendingClickListener = listener;
+            } else {
+                originalAddEventListener(type, listener, opts);
+            }
+        };
+    } catch (error) {
+        // OS-level notification permission is denied; that's expected. We still
+        // forward to the main process below.
+    }
 
-    const originalAddEventListener = notification.addEventListener.bind(notification);
-    notification.addEventListener = function (type, listener, opts) {
-        if (type === 'click') {
-            pendingClickListener = listener;
-        } else {
-            originalAddEventListener(type, listener, opts);
-        }
-    };
-
-    ipcRenderer.send(EVENT_WEBVIEW_NOTIFICATION, { title, options });
-
+    forwardNotification(title, options);
     return notification;
 };
 Notification.prototype = OriginalBrowserNotification.prototype;
-Notification.permission = OriginalBrowserNotification.permission;
-Notification.requestPermission = OriginalBrowserNotification.requestPermission.bind(OriginalBrowserNotification);
+// Make the page think it's allowed to show notifications so it actually fires them.
+Notification.permission = 'granted';
+Notification.requestPermission = (callback) => {
+    if (typeof callback === 'function') {
+        callback('granted');
+    }
+    return Promise.resolve('granted');
+};
+
+// 2) Intercept service-worker `registration.showNotification(...)`, which is how
+//    Google Messages shows notifications while the app is open.
+if (typeof ServiceWorkerRegistration !== 'undefined'
+    && ServiceWorkerRegistration.prototype
+    && ServiceWorkerRegistration.prototype.showNotification) {
+    ServiceWorkerRegistration.prototype.showNotification = function (title, options) {
+        forwardNotification(title, options);
+        return Promise.resolve();
+    };
+}
+
+// 3) Report the notifications permission as granted to `navigator.permissions.query`,
+//    which some code paths consult instead of `Notification.permission`.
+if (navigator.permissions && typeof navigator.permissions.query === 'function') {
+    const originalQuery = navigator.permissions.query.bind(navigator.permissions);
+    navigator.permissions.query = (descriptor) => {
+        if (descriptor && descriptor.name === 'notifications') {
+            return Promise.resolve({
+                state: 'granted',
+                status: 'granted',
+                onchange: null,
+                addEventListener() {},
+                removeEventListener() {},
+                dispatchEvent() { return false; }
+            });
+        }
+        return originalQuery(descriptor);
+    };
+}

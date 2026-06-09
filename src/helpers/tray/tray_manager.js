@@ -106,8 +106,9 @@ export default class TrayManager {
     this.tray.removeListener('double-click', this.handleTrayClick);
   }
 
-  handleTrayClick(event) {
-    event.preventDefault();
+  handleTrayClick() {
+    // Note: the Tray 'click' event passes a modifier-keys object, not a DOM
+    // event, so there's no preventDefault() to call here.
     if (app.mainWindow) {
       app.mainWindow.show();
     }

@@ -13,7 +13,7 @@ import { helpMenuTemplate } from './menu/help_menu_template';
 import createWindow from './helpers/window';
 import TrayManager from './helpers/tray/tray_manager';
 import { attachContextMenu } from './helpers/webview_context_menu';
-import { isSafeExternalUrl, isAllowedNavigationUrl, isSafeDownloadUrl, isMessagesOrigin } from './helpers/url_security';
+import { isSafeExternalUrl, isAllowedNavigationUrl, isMessagesOrigin } from './helpers/url_security';
 import settings from './helpers/settings_manager';
 import {
   IS_MAC,
@@ -300,13 +300,20 @@ if (!isFirstInstance) {
     });
 
     ipcMain.on(EVENT_WEBVIEW_NOTIFICATION, (event, msg) => {
+      const senderUrl = event.senderFrame && event.senderFrame.url;
       // Only honor notifications that originate from the Google Messages frame.
-      if (!isMessagesOrigin(event.senderFrame && event.senderFrame.url)) {
+      if (!isMessagesOrigin(senderUrl)) {
         return;
       }
       if (msg && msg.options) {
-        // Only pass through an icon if it's a safe, fetchable URL.
-        const safeIcon = isSafeDownloadUrl(msg.options.icon) ? msg.options.icon : undefined;
+        // Only pass through an icon the MAIN process can actually fetch
+        // (http/https/data). blob: URLs are renderer-scoped and unresolvable
+        // here, and an unresolvable icon can make the notification silently
+        // fail to display on Linux.
+        const iconCandidate = msg.options.icon;
+        const safeIcon = (typeof iconCandidate === 'string' && /^(https?:|data:)/.test(iconCandidate))
+          ? iconCandidate
+          : undefined;
         const notificationOpts = state.notificationContentHidden ? {
           title: 'Android Messages Desktop',
           body: 'New Message'

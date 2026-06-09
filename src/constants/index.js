@@ -24,7 +24,6 @@ const EVENT_UPDATE_USER_SETTING = 'messages-update-user-setting';
 const EVENT_MAIN_WINDOW_FOCUS = 'messages-main-window-focus';
 
 export {
-    osName,
     IS_WINDOWS,
     IS_MAC,
     IS_LINUX,
