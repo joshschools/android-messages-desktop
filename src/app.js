@@ -46,6 +46,9 @@ ipcRenderer.on(EVENT_MAIN_WINDOW_FOCUS, () => {
 // only contextIsolation off, which the preload needs to override the guest page's
 // Notification implementation (ipcRenderer remains available in a sandboxed preload).
 const preloadUrl = url.pathToFileURL(path.join(__dirname, 'bridge.js')).toString();
+// allowpopups lets setWindowOpenHandler intercept target="_blank" links so they
+// open in the system browser instead of being silently blocked.
+androidMessagesWebview.setAttribute('allowpopups', '');
 androidMessagesWebview.setAttribute('preload', preloadUrl);
 androidMessagesWebview.setAttribute('webpreferences', 'contextIsolation=no, sandbox=yes, nodeIntegration=no');
 androidMessagesWebview.setAttribute('src', MESSAGES_URL);

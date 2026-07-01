@@ -6,8 +6,8 @@
 // electron-hunspell + remote-based menu that used to live in the webview
 // preload, and keeps all privileged Menu work in the main process.
 
-import { Menu, BrowserWindow } from 'electron';
-import { isSafeDownloadUrl } from './url_security';
+import { Menu, BrowserWindow, clipboard, shell } from 'electron';
+import { isSafeDownloadUrl, isSafeExternalUrl } from './url_security';
 
 const buildSpellingSection = (contents, params) => {
   const items = [];
@@ -39,6 +39,14 @@ const buildSpellingSection = (contents, params) => {
 export const attachContextMenu = (contents) => {
   contents.on('context-menu', (event, params) => {
     const template = [];
+
+    if (params.linkURL && isSafeExternalUrl(params.linkURL)) {
+      template.push(
+        { label: 'Open Link', click: () => shell.openExternal(params.linkURL) },
+        { label: 'Copy Link Address', click: () => clipboard.writeText(params.linkURL) },
+        { type: 'separator' }
+      );
+    }
 
     // Offer to save right-clicked images/videos, but only for safe schemes.
     if ((params.mediaType === 'image' || params.mediaType === 'video') && isSafeDownloadUrl(params.srcURL)) {
