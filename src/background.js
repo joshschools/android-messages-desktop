@@ -45,6 +45,18 @@ const state = {
 let mainWindow = null;
 let webviewContents = null;
 
+const updateUnreadBadge = () => {
+  // Electron maps this to the macOS dock badge and to launcher badges on
+  // supported Linux desktop environments. Unsupported platforms simply return
+  // false, so the existing Windows tray overlay remains the fallback there.
+  app.setBadgeCount(state.unreadNotificationCount);
+};
+
+const clearUnreadNotifications = () => {
+  state.unreadNotificationCount = 0;
+  updateUnreadBadge();
+};
+
 // Permissions the Google Messages web app legitimately needs. Everything else
 // (geolocation, midi, hid, serial, usb, idle-detection, etc.) is denied, and
 // notifications are handled separately since we render our own.
@@ -286,10 +298,7 @@ if (!isFirstInstance) {
     app.mainWindow = mainWindow; // Quick and dirty way for the tray manager to access mainWindow
 
     mainWindow.on('focus', () => {
-      if (IS_MAC) {
-        state.unreadNotificationCount = 0;
-        app.dock.setBadge('');
-      }
+      clearUnreadNotifications();
 
       if (IS_WINDOWS && trayManager.overlayVisible) {
         trayManager.toggleOverlay(false);
@@ -325,11 +334,9 @@ if (!isFirstInstance) {
         notificationOpts.silent = !(state.notificationSoundEnabled);
         const customNotification = new Notification(notificationOpts);
 
-        if (IS_MAC) {
-          if (!mainWindow.isFocused()) {
-            state.unreadNotificationCount += 1;
-            app.dock.setBadge('' + state.unreadNotificationCount);
-          }
+        if (!mainWindow.isFocused()) {
+          state.unreadNotificationCount += 1;
+          updateUnreadBadge();
         }
 
         trayManager.toggleOverlay(true);
