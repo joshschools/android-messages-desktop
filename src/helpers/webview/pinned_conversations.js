@@ -159,7 +159,10 @@ const readPinState = () => {
   try {
     const state = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (state && Array.isArray(state.pins) && Array.isArray(state.hiddenGooglePins)) {
-      return state;
+      return {
+        pins: state.pins.slice(0, MAX_PINNED_CONVERSATIONS),
+        hiddenGooglePins: state.hiddenGooglePins
+      };
     }
   } catch (error) {
     // Ignore malformed state and start with Google's current pins.
@@ -214,11 +217,15 @@ const syncGooglePins = (state, conversations) => {
     }
     const existing = state.pins.find((pin) => pin.href === conversation.href);
     if (existing) {
-      Object.assign(existing, {
-        name: conversation.name,
-        avatar: conversation.avatar || existing.avatar
-      });
-    } else {
+      const avatar = conversation.avatar || existing.avatar;
+      if (existing.name !== conversation.name || existing.avatar !== avatar) {
+        Object.assign(existing, {
+          name: conversation.name,
+          avatar
+        });
+        changed = true;
+      }
+    } else if (state.pins.length < MAX_PINNED_CONVERSATIONS) {
       state.pins.push({
         href: conversation.href,
         name: conversation.name,
@@ -239,10 +246,14 @@ const togglePinnedConversation = (conversation) => {
   const pinIndex = state.pins.findIndex((pin) => pin.href === conversation.href);
   if (pinIndex >= 0) {
     state.pins.splice(pinIndex, 1);
-    if (!state.hiddenGooglePins.includes(conversation.href)) {
+    if (conversation.googlePinned
+      && !state.hiddenGooglePins.includes(conversation.href)) {
       state.hiddenGooglePins.push(conversation.href);
     }
   } else {
+    if (state.pins.length >= MAX_PINNED_CONVERSATIONS) {
+      return;
+    }
     state.pins.push({
       href: conversation.href,
       name: conversation.name,
@@ -371,10 +382,14 @@ const renderPinnedConversations = () => {
     conversation.href,
     conversation
   ]));
-  const conversations = state.pins.slice(0, MAX_PINNED_CONVERSATIONS).map((pin) => ({
-    ...pin,
-    ...currentByHref.get(pin.href)
-  }));
+  const conversations = state.pins.map((pin) => {
+    const current = currentByHref.get(pin.href);
+    return {
+      ...pin,
+      ...current,
+      avatar: (current && current.avatar) || pin.avatar
+    };
+  });
   conversations.forEach((conversation) => {
     if (conversation.sourceItem) {
       conversation.sourceItem.classList.add('amd-pinned-source');
@@ -421,10 +436,13 @@ const injectPinMenuItem = () => {
   button.className = 'mat-mdc-menu-item mat-mdc-focus-indicator amd-pin-menu-item';
   button.setAttribute('role', 'menuitem');
   button.setAttribute('tabindex', '0');
+  const pinLimitReached = !isPinned(activeMenuConversation.href)
+    && readPinState().pins.length >= MAX_PINNED_CONVERSATIONS;
+  button.disabled = pinLimitReached;
   label.className = 'mat-mdc-menu-item-text';
   label.textContent = isPinned(activeMenuConversation.href)
     ? 'Unpin'
-    : 'Pin';
+    : (pinLimitReached ? 'Pin (limit reached)' : 'Pin');
   button.appendChild(label);
   button.addEventListener('click', () => {
     togglePinnedConversation(activeMenuConversation);
