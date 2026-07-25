@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Show the unread notification count on supported taskbar/dock launchers and clear it when the app regains focus
+- Display pinned conversations as an iOS-style shortcut grid with pin/unpin actions in each conversation's options menu
+
 ## [4.0.0] - 2026-06-08
 ### Security
 - Restrict webview navigation to Google's origins (`messages.google.com` / `accounts.google.com`); off-origin navigations are blocked and safe links are opened in the external browser instead

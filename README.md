@@ -40,7 +40,8 @@ Originally inspired by:
 
 ## Features
 - System notifications when a text comes in
-- Unread notification badge on macOS (dock) and Windows (tray overlay)
+- Unread notification count on macOS (dock) and supported Linux launchers, plus a Windows tray overlay
+- iOS-style pinned conversation shortcuts, managed from each conversation's options menu
 - Spellchecking via Electron's built-in (Chromium) spellchecker
 - Press-Enter-to-send toggle
 - Follow the system light/dark mode setting (no in-app light/dark toggle — switches with your OS theme, or use Google Messages' ⋮ menu when sync is disabled)

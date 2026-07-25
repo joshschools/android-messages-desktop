@@ -4,8 +4,11 @@ import { ipcRenderer } from 'electron';
 import { EVENT_WEBVIEW_NOTIFICATION, EVENT_NOTIFICATION_CLICK, EVENT_BRIDGE_INIT, EVENT_UPDATE_USER_SETTING } from '../../constants';
 import { isObject } from '../utilities';
 import InputManager from './input_manager';
+import { initializePinnedConversations } from './pinned_conversations';
 
 window.addEventListener('load', () => {
+    initializePinnedConversations();
+
     // Without observing the DOM, we don't have a reliable way to let the main
     // process know once (and only once) that the main part of the app (not the
     // QR code login screen) has loaded.
