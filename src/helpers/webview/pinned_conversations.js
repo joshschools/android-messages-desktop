@@ -141,16 +141,19 @@ const styles = `
     outline: none;
   }
 
-  body.dark-mode #${PINNED_CONTAINER_ID} {
+  body.dark-mode #${PINNED_CONTAINER_ID},
+  body.dark-theme #${PINNED_CONTAINER_ID} {
     --amd-pinned-muted: #bdc1c6;
     --amd-pinned-name: #e8eaed;
   }
 
-  body.dark-mode .amd-pinned-context-menu {
+  body.dark-mode .amd-pinned-context-menu,
+  body.dark-theme .amd-pinned-context-menu {
     background: #3c4043;
   }
 
-  body.dark-mode .amd-pinned-context-menu button {
+  body.dark-mode .amd-pinned-context-menu button,
+  body.dark-theme .amd-pinned-context-menu button {
     color: #e8eaed;
   }
 `;
