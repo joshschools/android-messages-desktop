@@ -20,7 +20,7 @@ export default (name, options) => {
     let restoredState = {};
     try {
       restoredState = userDataDir.read(stateStoreFile, "json");
-    } catch (err) {
+    } catch {
       // For some reason json can't be read (might be corrupted).
       // No worries, we have defaults.
     }
