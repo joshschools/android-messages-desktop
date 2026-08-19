@@ -76,6 +76,7 @@
     }
   },
   "scripts": {
+    "lint": "eslint src build config eslint.config.js",
     "compile": "webpack --config=build/webpack.app.config.js --env production",
     "start": "node build/start.js",
     "release": "npm run compile && electron-builder -mwl",
@@ -95,8 +96,10 @@
     "@electron/notarize": "^2.5.0",
     "babel-loader": "^9.2.1",
     "css-loader": "^7.1.2",
-    "electron": "^42.3.3",
+    "electron": "^42.9.3",
     "electron-builder": "^26.15.2",
+    "eslint": "^10.8.1",
+    "globals": "^17.11.0",
     "png2icons": "^2.0.1",
     "style-loader": "^4.0.0",
     "webpack": "^5.97.0",

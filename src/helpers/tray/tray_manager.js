@@ -132,7 +132,7 @@ export default class TrayManager {
     }
   }
 
-  handleTrayEnabledToggle(newValue, oldValue) {
+  handleTrayEnabledToggle(newValue, _oldValue) {
     this.enabled = newValue;
     let liveStartInTrayMenuItemRef = Menu.getApplicationMenu().getMenuItemById('startInTrayMenuItem');
     let livetrayClickShortcutMenuItemRef = Menu.getApplicationMenu().getMenuItemById('trayClickShortcutMenuItem');
@@ -177,7 +177,7 @@ export default class TrayManager {
     }
   }
 
-  handleTrayClickShortcutToggle(newValue, oldValue) {
+  handleTrayClickShortcutToggle(newValue, _oldValue) {
     this.clickShortcut = newValue;
     this.destroyEventListeners();
     this.setupEventListeners();
