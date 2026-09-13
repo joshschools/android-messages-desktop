@@ -6,13 +6,13 @@
   "version": "4.0.2",
   "author": "Chris Knepper <chris82thekid@gmail.com>",
   "copyright": "© 2018-2026 Chris Knepper",
-  "homepage": "https://github.com/chrisknepper/android-messages-desktop",
+  "homepage": "https://github.com/joshschools/android-messages-desktop",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/chrisknepper/android-messages-desktop.git"
+    "url": "git+https://github.com/joshschools/android-messages-desktop.git"
   },
   "bugs": {
-    "url": "https://github.com/chrisknepper/android-messages-desktop/issues"
+    "url": "https://github.com/joshschools/android-messages-desktop/issues"
   },
   "main": "app/background.js",
   "build": {
