@@ -5,7 +5,7 @@
 
 import path from 'path';
 import url from 'url';
-import { app, Menu, ipcMain, Notification, shell, nativeTheme, BrowserWindow } from 'electron';
+import { app, Menu, ipcMain, Notification, shell, nativeTheme } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { baseMenuTemplate } from './menu/base_menu_template';
 import { devMenuTemplate } from './menu/dev_menu_template';
@@ -20,7 +20,6 @@ import {
   IS_WINDOWS,
   IS_LINUX,
   IS_DEV,
-  MESSAGES_URL,
   SETTING_TRAY_ENABLED,
   SETTING_TRAY_CLICK_SHORTCUT,
   EVENT_WEBVIEW_NOTIFICATION,
@@ -125,7 +124,7 @@ if (!isFirstInstance) {
       if (match) {
         contents.session.setSpellCheckerLanguages([match]);
       }
-    } catch (error) {
+    } catch {
       // Spellchecking is best-effort; ignore unsupported locales.
     }
 

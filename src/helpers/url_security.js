@@ -20,7 +20,7 @@ const SAFE_DOWNLOAD_PROTOCOLS = new Set(['https:', 'blob:', 'data:']);
 const parseUrl = (value) => {
   try {
     return new URL(value);
-  } catch (error) {
+  } catch {
     return null;
   }
 };

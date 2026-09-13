@@ -73,7 +73,7 @@ Notification = function (title, options) {
                 originalAddEventListener(type, listener, opts);
             }
         };
-    } catch (error) {
+    } catch {
         // OS-level notification permission is denied; that's expected. We still
         // forward to the main process below.
     }

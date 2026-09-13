@@ -164,7 +164,7 @@ const readPinState = () => {
         hiddenGooglePins: state.hiddenGooglePins
       };
     }
-  } catch (error) {
+  } catch {
     // Ignore malformed state and start with Google's current pins.
   }
   return { pins: [], hiddenGooglePins: [] };
@@ -191,7 +191,7 @@ const getConversationDetails = (item) => {
   let avatar = null;
   try {
     avatar = canvas ? canvas.toDataURL('image/png') : null;
-  } catch (error) {
+  } catch {
     // Canvas export is best-effort. Initials remain as the fallback.
   }
 
